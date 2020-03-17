@@ -1,0 +1,29 @@
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS 0x4
+FILETYPE 1
+{
+  BLOCK "StringFileInfo"
+  {
+    BLOCK "040904E4"
+    {
+      VALUE "CompanyName", "Bill Stewart (bstewart at iname.com)"
+      VALUE "FileDescription", "editenv.exe"
+      VALUE "FileVersion", "1.0.0.0"
+      VALUE "InternalName", "editenv.exe"
+      VALUE "LegalCopyright", "(C) 2020 by Bill Stewart (bstewart at iname.com)"
+      VALUE "OriginalFilename", "editenv.exe"
+      VALUE "ProductName", "editenv.exe"
+      VALUE "ProductVersion", "1.0.0.0"
+    }
+  }
+
+  BLOCK "VarFileInfo"
+  {
+    VALUE "Translation", 0x0409, 0x04E4
+  }
+}
+
+APPICON ICON "editenv.ico"
+MAINICON ICON "editenv.ico"
