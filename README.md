@@ -48,10 +48,6 @@ The line editor supports the following keystroke commands:
 | `Ctrl+C`                  | Cancel input
 | `Enter` or `Ctrl+M`       | Enter input
 
-* There is no visual indication of insert vs. overtype mode.
-
-* **editenv** does not work from the PowerShell ISE.
-
 ## EXIT CODES
 
 | Description                                               | Exit Code
@@ -82,6 +78,22 @@ The line editor supports the following keystroke commands:
 * The `--timeout` parameter does not use a high-precision timer.
 
 * The `--maskinput` parameter is not encrypted or secure.
+
+* There is no visual indication of insert vs. overtype mode.
+
+* **editenv** does not work from the PowerShell ISE.
+
+## VERSION HISTORY
+
+1.1.0.0 (2020-07-13)
+
+* Build using FPC 3.2.0.
+
+* Minor documentation corrections.
+
+1.0.0.0 (2020-03-17)
+
+* Initial version.
 
 ## EXAMPLES
 

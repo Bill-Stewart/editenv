@@ -62,7 +62,7 @@ function GetWindowsMessage(const MessageId: DWORD; const Module: string; const A
 
 function GetWindowsMessage(const MessageId: DWORD; const Module: string; const AddId: boolean; const Args: array of string): string;
 
-Implementation
+implementation
 
 function FormatMessageFromSystem(const MessageId: DWORD; const AddId: boolean = false; const Module: string = ''): string;
   var

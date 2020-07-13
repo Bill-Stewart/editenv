@@ -177,7 +177,7 @@ procedure InitializeUnit();
   CONOUT := CreateFile('CONOUT$',        // LPCTSTR               lpFileName
                        Access,           // DWORD                 dwDesiredAccess
                        FILE_SHARE_READ,  // DWORD                 dwShareMode
-                       Nil,              // LPSECURITY_ATTRIBUTES lpSecurityAttributes
+                       nil,              // LPSECURITY_ATTRIBUTES lpSecurityAttributes
                        OPEN_EXISTING,    // DWORD                 dwCreationDisposition
                        0,                // DWORD                 dwFlagsAndAttributes
                        0);               // HANDLE                hTemplateFile

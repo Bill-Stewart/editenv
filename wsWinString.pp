@@ -149,7 +149,7 @@ function UnicodeToBase64String(const S: unicodestring): string;
     pResult: pointer;
   begin
   result := '';
-  Flags := CRYPT_STRING_BASE64 Or CRYPT_STRING_NOCRLF;
+  Flags := CRYPT_STRING_BASE64 or CRYPT_STRING_NOCRLF;
   if CryptBinaryToStringW(pointer(S),                    // PBYTE  pbBinary
                           Length(S) * SizeOf(widechar),  // DWORD  cbBinary
                           Flags,                         // DWORD  dwflags

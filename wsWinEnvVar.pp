@@ -201,7 +201,7 @@ function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: string): 
     SYNCHRONIZE;
   // Open process
   hProcess := OpenProcess(ProcessAccess,  // DWORD dwDesiredAccess
-                          True,           // BOOL  bInheritHandle
+                          true,           // BOOL  bInheritHandle
                           ProcessID);     // DWORD dwProcessId
   if hProcess <> 0 then
     begin

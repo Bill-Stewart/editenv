@@ -54,7 +54,7 @@ type
 var
   ProcessID: DWORD;
   CommandLine: TCommandLine;
-  VarValue, NewValue: String;
+  VarValue, NewValue: string;
   Editor: TLineEditor;
   Canceled, TimedOut: boolean;
 
@@ -109,9 +109,6 @@ procedure Usage();
   WriteLn('Ctrl+C                 Cancel input');
   WriteLn('Enter or Ctrl+M        Enter input');
   WriteLn();
-  WriteLn('* There is no visual indication of insert vs. overtype mode.');
-  WriteLn('* editenv does not work from the PowerShell ISE.');
-  WriteLn();
   WriteLn('EXIT CODES');
   WriteLn();
   WriteLn('Description                                                Exit Code');
@@ -136,6 +133,8 @@ procedure Usage();
   WriteLn('* The environment variable''s value is limited to ', MAX_ENVVAR_VALUE_LENGTH, ' characters.');
   WriteLn('* The --timeout parameter does not use a high-precision timer.');
   WriteLn('* The --maskinput parameter is not encrypted or secure.');
+  WriteLn('* There is no visual indication of insert vs. overtype mode.');
+  WriteLn('* editenv does not work from the PowerShell ISE.');
   end;
 
 // Returns N as a string
@@ -379,7 +378,7 @@ function IsOSVersionNewEnough(): boolean;
   var
     OVI: OSVERSIONINFO;
   begin
-  result := False;
+  result := false;
   OVI.dwOSVersionInfoSize := SizeOf(OSVERSIONINFO);
   if GetVersionEx(OVI) then
     result := (OVI.dwPlatformId = VER_PLATFORM_WIN32_NT) and (OVI.dwMajorVersion >= 5);
@@ -490,13 +489,13 @@ begin
   // Destroy instance
   Editor.Destroy();
 
-  If Canceled then
+  if Canceled then
     begin
     ExitCode := ERROR_CANCELLED;
     exit();
     end;
 
-  If TimedOut then
+  if TimedOut then
     begin
     ExitCode := WAIT_TIMEOUT;
     exit();

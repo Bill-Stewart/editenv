@@ -40,7 +40,7 @@ type
         DisallowedCharSet: TCharSet;   // characters disallowed for input
         WordDelims: TCharSet;          // word delimiter characters
         IsCanceled: boolean;           // true if Ctrl+C pressed
-        IsTimedOut: Boolean;           // true if timeout elapsed
+        IsTimedOut: boolean;           // true if timeout elapsed
         TimeoutSecs: word;             // times out after this many seconds
         MaxLen: word;                  // maximum allowed # of characters
         CurrMaxLen: word;              // grows as line length increases
@@ -223,7 +223,7 @@ procedure TLineEditor.EndLine();
     end;
   end;
 
-Procedure TLineEditor.ShowLine();
+procedure TLineEditor.ShowLine();
   var
     Part: string;
   begin
@@ -435,7 +435,7 @@ function TLineEditor.EditLine(const Text: string): string;
     Key := TranslateKeyEvent(GetKeyEvent());
     if IsFunctionKey(Key) then
       begin
-      KeyString := LowerCase(KeyEventToString(Key));
+      KeyString := Lowercase(KeyEventToString(Key));
       case KeyString of
         'insert':     ToggleInsert();
         'left':       EditCursorLeft(1);
