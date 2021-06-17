@@ -11,7 +11,7 @@ if ( -not (Test-Path $BinaryPath) ) {
 }
 $VersionInfo = (Get-Item $BinaryPath).VersionInfo
 
-$Version = "{0}.{1}" -f $VersionInfo.FileMajorPart,$VersionInfo.FileMinorPart
+$Version = "{0}.{1}.{2}" -f $VersionInfo.FileMajorPart,$VersionInfo.FileMinorPart,$VersionInfo.FileBuildPart
 
 $Sources = Get-Content (Join-Path $PSScriptRoot "sources.txt") -ErrorAction Stop
 
@@ -37,6 +37,7 @@ $Sources | ForEach-Object {
   "x86\editenv.exe"
   "LICENSE"
   "README.md"
+  "history.md"
 ) | Out-File $ListName -Append -Encoding utf8
 
 $ZipName = Join-Path $PSScriptRoot ("editenv-{0}.zip" -f $Version)

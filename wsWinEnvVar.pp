@@ -1,4 +1,4 @@
-{ Copyright (C) 2020 by Bill Stewart (bstewart at iname.com)
+{ Copyright (C) 2020-2021 by Bill Stewart (bstewart at iname.com)
 
   This program is free software: you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free Software
@@ -18,14 +18,13 @@
 {$MODE OBJFPC}
 {$H+}
 
-unit
-  wsWinEnvVar;
+unit wsWinEnvVar;
 
 interface
 
 uses
-  windows,
-  wsWinProcess, wsWinstring;
+  Windows,
+  wsWinProcess;
 
 const
   ERROR_EXE_MACHINE_TYPE_MISMATCH = 216;
@@ -34,38 +33,36 @@ const
   THREADPROC_ROUTINE_LENGTH       = 64;
 
 // Returns whether the environment variable exists in current process.
-function EnvVarExists(const Name: string): boolean;
+function EnvVarExists(const Name: UnicodeString): Boolean;
 
 // Gets the value of an environment variable as a string.
-function GetEnvVar(const Name: string): string;
+function GetEnvVar(const Name: UnicodeString): UnicodeString;
 
 // Sets (or removes) the value of an environment variable in a specified
 // process (to remove a variable: Set Value parameter to empty string).
 // Current and other process must match "bitness" (i.e., the processes must
 // both be 32-bit or they must both be 64-bit). Returns zero for success, or
 // non-zero for failure.
-function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: string): DWORD;
+function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: UnicodeString): DWORD;
 
 implementation
 
 type
-  TSetEnvironmentVariable = function(lpName:  LPCWSTR;
-                                     lpValue: LPCWSTR): BOOL; stdcall;
-  TCreateRemoteThread = function(hProcess:           HANDLE;
-                                 lpThreadAttributes: LPSECURITY_ATTRIBUTES;
-                                 dwStackSize:        SIZE_T;
-                                 lpStartAddress:     LPTHREAD_START_ROUTINE;
-                                 lpParameter:        LPVOID;
-                                 dwCreationFlags:    DWORD;
-                                 lpThreadId:         LPDWORD): HANDLE; stdcall;
-  TEnvVarNameBuffer = array[0..MAX_ENVVAR_NAME_LENGTH] of widechar;
-  TEnvVarValueBuffer = array[0..MAX_ENVVAR_VALUE_LENGTH] of widechar;
+  TSetEnvironmentVariable = function(lpName: LPCWSTR; lpValue: LPCWSTR): BOOL; stdcall;
+  TCreateRemoteThread = function(hProcess: HANDLE;
+    lpThreadAttributes: LPSECURITY_ATTRIBUTES;
+    dwStackSize: SIZE_T;
+    lpStartAddress: LPTHREAD_START_ROUTINE;
+    lpParameter: LPVOID; dwCreationFlags: DWORD;
+    lpThreadId: LPDWORD): HANDLE; stdcall;
+  TEnvVarNameBuffer  = array[0..MAX_ENVVAR_NAME_LENGTH] of WideChar;
+  TEnvVarValueBuffer = array[0..MAX_ENVVAR_VALUE_LENGTH] of WideChar;
   TSetEnvVarCodeBuffer = packed record
     SetEnvironmentVariable: TSetEnvironmentVariable;
     Name:                   TEnvVarNameBuffer;
     Value:                  TEnvVarValueBuffer;
-    Routine:                array[0..THREADPROC_ROUTINE_LENGTH - 1] of byte;
-    end;
+    Routine:                array[0..THREADPROC_ROUTINE_LENGTH - 1] of Byte;
+  end;
   PSetEnvVarCodeBuffer = ^TSetEnvVarCodeBuffer;
 
 { TSetEnvVarCodeBuffer members:
@@ -90,65 +87,64 @@ type
   both must be 64-bit).
 }
 
-function EnvVarExists(const Name: string): boolean;
-  begin
-  GetEnvironmentVariable(pchar(Name),  // LPCSTR Name
-                         nil,          // LPSTR  lpBuffer
-                         0);           // DWORD  nSize
+function EnvVarExists(const Name: UnicodeString): Boolean;
+begin
+  GetEnvironmentVariableW(PWideChar(Name),  // LPCWSTR Name
+    nil,                                    // LPWSTR  lpBuffer
+    0);                                     // DWORD   nSize
   result := GetLastError() <> ERROR_ENVVAR_NOT_FOUND;
-  end;
+end;
 
-function GetEnvVar(const Name: string): string;
-  var
-    pWideName, pBuffer: pwidechar;
-    NumChars, BufSize: DWORD;
-  begin
+function GetEnvVar(const Name: UnicodeString): UnicodeString;
+var
+  NumChars, BufSize: DWORD;
+  pBuffer: PWideChar;
+begin
   result := '';
-  pWideName := pwidechar(StringToUnicodeString(pchar(Name)));
-  // First call: Get number of characters needed for buffer
-  NumChars := GetEnvironmentVariableW(pWideName,  // LPCWSTR lpName
-                                      nil,        // LPWSTR  lpBuffer
-                                      0);         // DWORD   nSize
+  // Get number of characters needed for buffer
+  NumChars := GetEnvironmentVariableW(PWideChar(Name),  // LPCWSTR lpName
+    nil,                                                // LPWSTR  lpBuffer
+    0);                                                 // DWORD   nSize
   if NumChars > 0 then
-    begin
-    BufSize := NumChars * SizeOf(widechar);
+  begin
+    BufSize := NumChars * SizeOf(WideChar);
     GetMem(pBuffer, BufSize);
-    if GetEnvironmentVariableW(pWideName,          // LPCWSTR lpName
-                               pBuffer,            // LPWSTR  lpBuffer
-                               NumChars) > 0 then  // DWORD   nSize
-      result := UnicodeStringToString(pBuffer);
+    if GetEnvironmentVariableW(PWideChar(Name),  // LPCWSTR lpName
+      pBuffer,                                   // LPWSTR  lpBuffer
+      NumChars) > 0 then                         // DWORD   nSize
+      result := pBuffer;
     FreeMem(pBuffer, BufSize);
-    end;
   end;
+end;
 
 // Must match ThreadProc function signature
 function SetEnvVarThreadProc(const pCodeBuffer: PSetEnvVarCodeBuffer): DWORD; stdcall;
-  begin
+begin
   result := DWORD(pCodeBuffer^.SetEnvironmentVariable(pCodeBuffer^.Name, pCodeBuffer^.Value));
-  end;
+end;
 
 // Must match ThreadProc function signature
 function RemoveEnvVarThreadProc(const pCodeBuffer: PSetEnvVarCodeBuffer): DWORD; stdcall;
-  begin
+begin
   result := DWORD(pCodeBuffer^.SetEnvironmentVariable(pCodeBuffer^.Name, nil));
-  end;
+end;
 
 // Sets/removes an environment variable in another process
-function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: string): DWORD;
-  var
-    CreateRemoteThread: TCreateRemoteThread;
-    CodeBuffer: TSetEnvVarCodeBuffer;
-    NameBuffer: TEnvVarNameBuffer;
-    ValueBuffer: TEnvVarValueBuffer;
-    pRoutine: pointer;
-    ProcessAccess: DWORD;
-    hProcess: HANDLE;
-    pCodeBuffer: PSetEnvVarCodeBuffer;
-    OK: BOOL;
-    BytesWritten: SIZE_T;
-    hThread: HANDLE;
-    ThreadExitCode: DWORD;
-  begin
+function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: UnicodeString): DWORD;
+var
+  CreateRemoteThread: TCreateRemoteThread;
+  CodeBuffer: TSetEnvVarCodeBuffer;
+  NameBuffer: TEnvVarNameBuffer;
+  ValueBuffer: TEnvVarValueBuffer;
+  pRoutine: Pointer;
+  ProcessAccess: DWORD;
+  hProcess: HANDLE;
+  pCodeBuffer: PSetEnvVarCodeBuffer;
+  OK: BOOL;
+  BytesWritten: SIZE_T;
+  hThread: HANDLE;
+  ThreadExitCode: DWORD;
+begin
   result := 0;
 
   // Variable name cannot contain '=' character
@@ -164,28 +160,32 @@ function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: string): 
     exit(ERROR_EXE_MACHINE_TYPE_MISMATCH);
 
   // Get pointer to function
-  CreateRemoteThread := TCreateRemoteThread(GetProcAddress(GetModuleHandle('kernel32'), 'CreateRemoteThread'));
-  if CreateRemoteThread = nil then exit(GetLastError());
+  CreateRemoteThread := TCreateRemoteThread(GetProcAddress(GetModuleHandle('kernel32'),
+    'CreateRemoteThread'));
+  if CreateRemoteThread = nil then
+    exit(GetLastError());
 
   // Initialize code buffer
   FillChar(CodeBuffer, SizeOf(CodeBuffer), 0);
 
   // Get address of SetEnvironmentVariableW
-  CodeBuffer.SetEnvironmentVariable := TSetEnvironmentVariable(GetProcAddress(GetModuleHandle('kernel32'), 'SetEnvironmentVariableW'));
-  if CodeBuffer.SetEnvironmentVariable = nil then exit(GetLastError());
+  CodeBuffer.SetEnvironmentVariable := TSetEnvironmentVariable(GetProcAddress(GetModuleHandle('kernel32'),
+    'SetEnvironmentVariableW'));
+  if CodeBuffer.SetEnvironmentVariable = nil then
+    exit(GetLastError());
 
   // Copy variable name to code buffer
-  NameBuffer := StringToUnicodeString(Name);
+  NameBuffer := Name;
   Move(NameBuffer, CodeBuffer.Name, SizeOf(NameBuffer));
 
   // Set or clear the environment variable?
   if Length(Value) > 0 then
-    begin
+  begin
     // Copy variable value to code buffer
-    ValueBuffer := StringToUnicodeString(Value);
+    ValueBuffer := Value;
     Move(ValueBuffer, CodeBuffer.Value, SizeOf(ValueBuffer));
     pRoutine := @SetEnvVarThreadProc;
-    end
+  end
   else
     pRoutine := @RemoveEnvVarThreadProc;
 
@@ -201,101 +201,73 @@ function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: string): 
     SYNCHRONIZE;
   // Open process
   hProcess := OpenProcess(ProcessAccess,  // DWORD dwDesiredAccess
-                          true,           // BOOL  bInheritHandle
-                          ProcessID);     // DWORD dwProcessId
+    true,                                 // BOOL  bInheritHandle
+    ProcessID);                           // DWORD dwProcessId
   if hProcess <> 0 then
-    begin
+  begin
     // Allocate memory in processs
-    pCodeBuffer := VirtualAllocEx(hProcess,                 // HANDLE hProcess
-                                  nil,                      // LPVOID lpAddress
-                                  SizeOf(CodeBuffer),       // DWORD  dwSize
-                                  MEM_COMMIT,               // DWORD  flAllocationType
-                                  PAGE_EXECUTE_READWRITE);  // DWORD  flProtect
+    pCodeBuffer := VirtualAllocEx(hProcess,  // HANDLE hProcess
+      nil,                                   // LPVOID lpAddress
+      SizeOf(CodeBuffer),                    // DWORD  dwSize
+      MEM_COMMIT,                            // DWORD  flAllocationType
+      PAGE_EXECUTE_READWRITE);               // DWORD  flProtect
     if pCodeBuffer <> nil then
-      begin
+    begin
       // Copy code buffer to process
-      OK := WriteProcessMemory(hProcess,            // HANDLE  hProcess
-                               pCodeBuffer,         // LPVOID  lpBaseAddress
-                               @CodeBuffer,         // LPCVOID lpBuffer
-                               SizeOf(CodeBuffer),  // SIZE_T  nSize
-                               BytesWritten);       // SIZE_T  lpNumberOfBytesWritten
+      OK := WriteProcessMemory(hProcess,  // HANDLE  hProcess
+        pCodeBuffer,                      // LPVOID  lpBaseAddress
+        @CodeBuffer,                      // LPCVOID lpBuffer
+        SizeOf(CodeBuffer),               // SIZE_T  nSize
+        BytesWritten);                    // SIZE_T  lpNumberOfBytesWritten
       if OK then
-        begin
+      begin
         // Execute function in process
-        hThread := CreateRemoteThread(hProcess,                  // HANDLE                 hProcess
-                                      nil,                       // LPSECURITY_ATTRIBUTES  lpThreadAttributes
-                                      0,                         // SIZE_T                 dwStackSize
-                                      @pCodeBuffer^.Routine[0],  // LPTHREAD_START_ROUTINE lpStartAddress
-                                      pCodeBuffer,               // LPVOID                 lpParameter
-                                      0,                         // DWORD                  dwCreationFlags
-                                      nil);                      // LPDWORD                lpThreadId
+        hThread := CreateRemoteThread(hProcess,  // HANDLE                 hProcess
+          nil,                                   // LPSECURITY_ATTRIBUTES  lpThreadAttributes
+          0,                                     // SIZE_T                 dwStackSize
+          @pCodeBuffer^.Routine[0],              // LPTHREAD_START_ROUTINE lpStartAddress
+          pCodeBuffer,                           // LPVOID                 lpParameter
+          0,                                     // DWORD                  dwCreationFlags
+          nil);                                  // LPDWORD                lpThreadId
         if hThread <> 0 then
-          begin
+        begin
           // Wait for thread to complete
           if WaitForSingleObject(hThread, INFINITE) <> WAIT_FAILED then
-            begin
+          begin
             // Get exit code of thread
             if GetExitCodeThread(hThread, ThreadExitCode) then
-              begin
+            begin
               if ThreadExitCode <> 0 then
                 result := 0
               else  // Thread exit code <> 0
                 result := GetLastError();
-              end
+            end
             else  // GetExitCodeThread() failed
               result := GetLastError();
-            end
+          end
           else  // WaitForSingleObject() failed
             result := GetLastError();
           CloseHandle(hThread);
-          end
+        end
         else  // CreateRemoteThread() failed
           result := GetLastError();
-        end
+      end
       else  // WriteProcessMemory() failed
         result := GetLastError();
       // Free memory in process
-      if not VirtualFreeEx(hProcess,          // HANDLE hProcess
-                           pCodeBuffer,       // LPVOID lpAddress
-                           0,                 // SIZE_T dwSize
-                           MEM_RELEASE) then  // DWORD  dwFreeType
+      if not VirtualFreeEx(hProcess,  // HANDLE hProcess
+        pCodeBuffer,                  // LPVOID lpAddress
+        0,                            // SIZE_T dwSize
+        MEM_RELEASE) then             // DWORD  dwFreeType
         result := GetLastError();
-      end
+    end
     else  // VirtualAllocEx() failed
       result := GetLastError();
     CloseHandle(hProcess);
-    end
+  end
   else  // OpenProcess() failed
     result := GetLastError();
-  end;
-
-// Sample routine to return '='-delimited list of environment variable names
-function GetEnvVarNames(): string;
-  var
-    pEntries, pEntry: pchar;
-    Entry, Name: string;
-  begin
-  result := '';
-  pEntries := GetEnvironmentStrings();
-  if pEntries <> nil then
-    begin
-    pEntry := pEntries;
-    while pEntry^ <> #0 do
-      begin
-      if pEntry[0] <> '=' then
-        begin
-        Entry := string(pEntry);
-        Name := Copy(Entry, 1, Pos('=', Entry) - 1);
-        if result = '' then
-          result := Name
-        else
-          result := result + '=' + Name;
-        end;
-      Inc(pEntry, Length(pEntry) + SizeOf(char));
-      end;
-    FreeEnvironmentStrings(pEntries);
-    end;
-  end;
+end;
 
 begin
 end.
