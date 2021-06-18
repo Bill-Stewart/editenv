@@ -34,26 +34,32 @@ uses
   wsWinProcess,
   wsWinString;
 
+const
+  PROGRAM_NAME = 'editenv';
+  PROGRAM_COPYRIGHT = 'Copyright (C) 2020-2021 by Bill Stewart';
+
 type
   TCommandLine = object
-    ErrorCode:         Word;            // <> 0 if error parsing command line
-    ErrorMessage:      UnicodeString;   // error message
-    AllowedChars:      string;          // --allowedchars
-    BeginningOfLine:   Boolean;         // --beginningofline
-    DisallowChars:     string;          // --disallowchars and --disallowquotes
-    EmptyInputAllowed: Boolean;         // --emptyinputallowed
-    Help:              Boolean;         // --help
-    MaxLength:         Word;            // --maxlength
-    MaskInput:         Boolean;         // --maskinput
-    MaskChar:          Char;            // --maskinput character
-    MinLength:         Word;            // --minlength
-    OvertypeMode:      Boolean;         // --overtypemode
-    Prompt:            UnicodeString;   // --prompt
-    Quiet:             Boolean;         // --quiet
-    Timeout:           Word;            // --timeout
-    EnvVarName:        UnicodeString;   // name of env var to edit
+    ErrorCode:         Word;           // <> 0 if error parsing command line
+    ErrorMessage:      UnicodeString;  // error message
+    AllowedChars:      AnsiString;     // --allowedchars
+    BeginningOfLine:   Boolean;        // --beginningofline
+    Debug:             Boolean;        // --debug
+    DisallowChars:     AnsiString;     // --disallowchars and --disallowquotes
+    EmptyInputAllowed: Boolean;        // --emptyinputallowed
+    Help:              Boolean;        // --help
+    MaxLength:         Word;           // --maxlength
+    MaskInput:         Boolean;        // --maskinput
+    MaskChar:          WideChar;       // --maskinput character
+    MinLength:         Word;           // --minlength
+    OvertypeMode:      Boolean;        // --overtypemode
+    Prompt:            UnicodeString;  // --prompt
+    Quiet:             Boolean;        // --quiet
+    Timeout:           Word;           // --timeout
+    EnvVarName:        UnicodeString;  // name of env var to edit
+    function IsValidCharList(const S: AnsiString): boolean;
     function LongIntToUnicodeString(const N: LongInt): UnicodeString;
-    function StringToLongInt(const S: string; var N: LongInt): Boolean;
+    function AnsiStringToLongInt(const S: AnsiString; var N: LongInt): Boolean;
     procedure Parse();
   end;
 
@@ -61,23 +67,22 @@ var
   ProcessID: DWORD;
   CommandLine: TCommandLine;
   VarValue: UnicodeString;
-  NewValue: string;
+  NewValue: AnsiString;
   Editor: TLineEditor;
   Canceled, TimedOut: Boolean;
 
 procedure Usage();
 begin
-  WriteLn('editenv - Copyright (C) 2020-2021 by Bill Stewart (bstewart at iname.com)');
+  WriteLn(PROGRAM_NAME, ' ', GetFileVersion(GetExecutablePath), ' - ', PROGRAM_COPYRIGHT);
   WriteLn('This is free software and comes with ABSOLUTELY NO WARRANTY.');
   WriteLn();
   WriteLn('SYNOPSIS');
   WriteLn();
-  WriteLn('editenv is a Windows console program that lets you interactively edit the value');
-  WriteLn('of an environment variable.');
+  WriteLn('Allows interactive editing of environment variables in a Windows console.');
   WriteLn();
   WriteLn('USAGE');
   WriteLn();
-  WriteLn('editenv [parameter [...]] variablename');
+  WriteLn(PROGRAM_NAME, ' [parameter [...]] variablename');
   WriteLn();
   WriteLn('Parameter           Abbrev. Description');
   WriteLn('------------------- ------- -------------------------------------------');
@@ -142,10 +147,25 @@ begin
   WriteLn('* The --timeout (-t) parameter does not use a high-precision timer');
   WriteLn('* The --maskinput (-m) parameter is not encrypted or secure');
   WriteLn('* There is no visual indication of insert vs. overtype mode');
-  WriteLn('* editenv does not work from the PowerShell ISE');
+  WriteLn('* Does not work from the PowerShell ISE');
 end;
 
-// Returns N as a string
+function TCommandLine.IsValidCharList(const S: AnsiString): boolean;
+const
+  VALID_CHAR_RANGE = [32..126];
+var
+  I: LongInt;
+begin
+  result := false;
+  for I := 1 to Length(S) do
+  begin
+    result := Ord(S[I]) in VALID_CHAR_RANGE;
+    if not result then
+      break;
+  end;
+end;
+
+// Returns N as a Unicode string
 function TCommandLine.LongIntToUnicodeString(const N: LongInt): UnicodeString;
 begin
   Str(N, result);
@@ -153,7 +173,7 @@ end;
 
 // Returns true if S can be converted to longint (output in N), or false
 // if S cannot be converted to longint
-function TCommandLine.StringToLongInt(const S: string; var N: LongInt): Boolean;
+function TCommandLine.AnsiStringToLongInt(const S: AnsiString; var N: LongInt): Boolean;
 var
   E: Word;
 begin
@@ -164,7 +184,7 @@ end;
 // Parse the command line
 procedure TCommandLine.Parse();
 var
-  LongOpts: array[1..15] of TOption;
+  LongOpts: array[1..16] of TOption;
   Opt: Char;
   I, IntArg: LongInt;
 begin
@@ -185,33 +205,41 @@ begin
   end;
   with LongOpts[3] do
   begin
+    // Used for debugging (not used in release version)
+    Name := 'debug';
+    Has_arg := No_Argument;
+    Flag := nil;
+    Value := #0;
+  end;
+  with LongOpts[4] do
+  begin
     Name := 'disallowchars';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 'D';
   end;
-  with LongOpts[4] do
+  with LongOpts[5] do
   begin
     Name := 'disallowquotes';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'd';
   end;
-  with LongOpts[5] do
+  with LongOpts[6] do
   begin
     Name := 'emptyinputallowed';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'e';
   end;
-  with LongOpts[6] do
+  with LongOpts[7] do
   begin
     Name := 'help';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'h';
   end;
-  with LongOpts[7] do
+  with LongOpts[8] do
   begin
     // --limitlength (-l) deprecated in favor of --maxlength (-x)
     Name := 'limitlength';
@@ -219,56 +247,56 @@ begin
     Flag := nil;
     Value := 'l';
   end;
-  with LongOpts[8] do
+  with LongOpts[9] do
   begin
     Name := 'maskinput';
     Has_arg := Optional_Argument;
     Flag := nil;
     Value := 'm';
   end;
-  with LongOpts[9] do
+  with LongOpts[10] do
   begin
     Name := 'maxlength';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 'x';
   end;
-  with LongOpts[10] do
+  with LongOpts[11] do
   begin
     Name := 'minlength';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 'n';
   end;
-  with LongOpts[11] do
+  with LongOpts[12] do
   begin
     Name := 'overtypemode';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'o';
   end;
-  with LongOpts[12] do
+  with LongOpts[13] do
   begin
     Name := 'prompt';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 'p';
   end;
-  with LongOpts[13] do
+  with LongOpts[14] do
   begin
     Name := 'quiet';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'q';
   end;
-  with LongOpts[14] do
+  with LongOpts[15] do
   begin
     Name := 'timeout';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 't';
   end;
-  with LongOpts[15] do
+  with LongOpts[16] do
   begin
     Name := '';
     Has_arg := No_Argument;
@@ -298,10 +326,10 @@ begin
     case Opt of
       'a':
       begin
-        if OptArg = '' then
+        if not IsValidCharList(OptArg) then
         begin
           ErrorCode := ERROR_INVALID_PARAMETER;
-          ErrorMessage := '--allowedchars (-a) parameter requires an argument';
+          ErrorMessage := '--allowedchars (-a) parameter has an invalid argument';
         end
         else
           AllowedChars := OptArg;
@@ -310,10 +338,10 @@ begin
         BeginningOfLine := true;
       'D':
       begin
-        if OptArg = '' then
+        if not IsValidCharList(OptArg) then
         begin
           ErrorCode := ERROR_INVALID_PARAMETER;
-          ErrorMessage := '--disallowchars (-D) parameter requires an argument';
+          ErrorMessage := '--disallowchars (-D) parameter has an invalid argument';
         end
         else
           DisallowChars := OptArg;
@@ -333,11 +361,11 @@ begin
       begin
         MaskInput := true;
         if OptArg <> '' then
-          MaskChar := OptArg[1];
+          MaskChar := StringToUnicodeString(OptArg, CP_ACP)[1];
       end;
       'n':
       begin
-        if (OptArg = '') or (not StringToLongInt(OptArg, IntArg)) or (IntArg < 1) or (IntArg > MAX_ENVVAR_VALUE_LENGTH) then
+        if (OptArg = '') or (not AnsiStringToLongInt(OptArg, IntArg)) or (IntArg < 1) or (IntArg > MAX_ENVVAR_VALUE_LENGTH) then
         begin
           ErrorCode := ERROR_INVALID_PARAMETER;
           ErrorMessage := '--minlength (-n) parameter requires a numeric argument in the range 1 to ' +
@@ -348,7 +376,7 @@ begin
       end;
       'x','l':  // 'l' is deprecated
       begin
-        if (OptArg = '') or (not StringToLongInt(OptArg, IntArg)) or (IntArg < 0) or (IntArg > MAX_ENVVAR_VALUE_LENGTH) then
+        if (OptArg = '') or (not AnsiStringToLongInt(OptArg, IntArg)) or (IntArg < 0) or (IntArg > MAX_ENVVAR_VALUE_LENGTH) then
         begin
           ErrorCode := ERROR_INVALID_PARAMETER;
           ErrorMessage := '--maxlength (-x) parameter requires a numeric argument in the range 0 to ' +
@@ -367,13 +395,13 @@ begin
           ErrorMessage := '--prompt (-p) parameter requires an argument';
         end
         else
-          Prompt := StringToUnicodeString(OptArg);
+          Prompt := StringToUnicodeString(OptArg, CP_ACP);
       end;
       'q':
         Quiet := true;
       't':
       begin
-        if (OptArg = '') or (not StringToLongInt(OptArg, IntArg)) or (IntArg < 1) or (IntArg > High(Word)) then
+        if (OptArg = '') or (not AnsiStringToLongInt(OptArg, IntArg)) or (IntArg < 1) or (IntArg > High(Word)) then
         begin
           ErrorCode := ERROR_INVALID_PARAMETER;
           ErrorMessage := '--timeout (-t) parameter requires a numeric argument in the range 1 to ' +
@@ -381,6 +409,12 @@ begin
         end
         else
           Timeout := Word(IntArg);
+      end;
+      #0:
+      begin
+        case LongOpts[I].Name of
+          'debug': Debug := true;
+        end; //case
       end;
       '?':
       begin
@@ -391,7 +425,7 @@ begin
   until Opt = EndOfOptions;
   if ErrorCode <> 0 then
     exit();
-  EnvVarName := StringToUnicodeString(ParamStr(OptInd));
+  EnvVarName := StringToUnicodeString(ParamStr(OptInd), CP_ACP);
   if EnvVarName = '' then
   begin
     ErrorCode := ERROR_INVALID_PARAMETER;
@@ -540,8 +574,22 @@ begin
   Editor.InsertMode := not CommandLine.OvertypeMode;
   Editor.Timeout := CommandLine.Timeout;
 
+  {$IFDEF DEBUG}
+  // Handy for viewing effects of code page differences
+  if CommandLine.Debug then
+  begin
+    if Editor.AllowedChars <> '' then
+      WriteLn('--allowedchars             [', Editor.AllowedChars, ']');
+    if Editor.DisallowChars <> '' then
+      WriteLn('--disallowchars            [', Editor.DisallowChars, ']');
+    if CommandLine.MaskInput then
+      WriteLn('--maskinput                [', Editor.MaskChar, ']');
+    WriteLn('Environment variable name  [', CommandLine.EnvVarName, ']');
+  end;
+  {$ENDIF}
+
   // Start the editor
-  NewValue := Editor.EditLine(UnicodeStringToString(VarValue));
+  NewValue := Editor.EditLine(UnicodeStringToString(VarValue, CP_ACP));
 
   // Find out if canceled or timed out
   Canceled := Editor.Canceled;
@@ -570,8 +618,9 @@ begin
     exit();
   end;
 
-  ExitCode := SetEnvVarInProcess(ProcessID, CommandLine.EnvVarName,
-    StringToUnicodeString(NewValue));
+  ExitCode := SetEnvVarInProcess(ProcessID,
+    CommandLine.EnvVarName,
+    StringToUnicodeString(NewValue, CP_OEMCP));
 
   if (ExitCode <> 0) and (not CommandLine.Quiet) then
     WriteLn(GetWindowsMessage(ExitCode, true));

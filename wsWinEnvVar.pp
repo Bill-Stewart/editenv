@@ -32,17 +32,17 @@ const
   MAX_ENVVAR_VALUE_LENGTH         = 16383;
   THREADPROC_ROUTINE_LENGTH       = 64;
 
-// Returns whether the environment variable exists in current process.
+// Returns whether the environment variable exists in current process
 function EnvVarExists(const Name: UnicodeString): Boolean;
 
-// Gets the value of an environment variable as a string.
+// Gets the value of an environment variable as a string
 function GetEnvVar(const Name: UnicodeString): UnicodeString;
 
 // Sets (or removes) the value of an environment variable in a specified
-// process (to remove a variable: Set Value parameter to empty string).
-// Current and other process must match "bitness" (i.e., the processes must
-// both be 32-bit or they must both be 64-bit). Returns zero for success, or
-// non-zero for failure.
+// process (to remove a variable: Set Value parameter to empty string);
+// current and other process must match "bitness" (i.e., the processes must
+// both be 32-bit or they must both be 64-bit); returns zero for success, or
+// non-zero for failure
 function SetEnvVarInProcess(const ProcessID: DWORD; const Name, Value: UnicodeString): DWORD;
 
 implementation
@@ -101,7 +101,6 @@ var
   pBuffer: PWideChar;
 begin
   result := '';
-  // Get number of characters needed for buffer
   NumChars := GetEnvironmentVariableW(PWideChar(Name),  // LPCWSTR lpName
     nil,                                                // LPWSTR  lpBuffer
     0);                                                 // DWORD   nSize
@@ -162,7 +161,7 @@ begin
   // Get pointer to function
   CreateRemoteThread := TCreateRemoteThread(GetProcAddress(GetModuleHandle('kernel32'),
     'CreateRemoteThread'));
-  if CreateRemoteThread = nil then
+  if not Assigned(CreateRemoteThread) then
     exit(GetLastError());
 
   // Initialize code buffer
@@ -171,18 +170,18 @@ begin
   // Get address of SetEnvironmentVariableW
   CodeBuffer.SetEnvironmentVariable := TSetEnvironmentVariable(GetProcAddress(GetModuleHandle('kernel32'),
     'SetEnvironmentVariableW'));
-  if CodeBuffer.SetEnvironmentVariable = nil then
+  if not Assigned(CodeBuffer.SetEnvironmentVariable) then
     exit(GetLastError());
 
   // Copy variable name to code buffer
-  NameBuffer := Name;
+  NameBuffer := PWideChar(Name);
   Move(NameBuffer, CodeBuffer.Name, SizeOf(NameBuffer));
 
   // Set or clear the environment variable?
   if Length(Value) > 0 then
   begin
     // Copy variable value to code buffer
-    ValueBuffer := Value;
+    ValueBuffer := PWideChar(Value);
     Move(ValueBuffer, CodeBuffer.Value, SizeOf(ValueBuffer));
     pRoutine := @SetEnvVarThreadProc;
   end
@@ -211,7 +210,7 @@ begin
       SizeOf(CodeBuffer),                    // DWORD  dwSize
       MEM_COMMIT,                            // DWORD  flAllocationType
       PAGE_EXECUTE_READWRITE);               // DWORD  flProtect
-    if pCodeBuffer <> nil then
+    if Assigned(pCodeBuffer) then
     begin
       // Copy code buffer to process
       OK := WriteProcessMemory(hProcess,  // HANDLE  hProcess
@@ -232,10 +231,12 @@ begin
         if hThread <> 0 then
         begin
           // Wait for thread to complete
-          if WaitForSingleObject(hThread, INFINITE) <> WAIT_FAILED then
+          if WaitForSingleObject(hThread,   // HANDLE hHandle
+             INFINITE) <> WAIT_FAILED then  // DWORD  dwMilliseconds
           begin
             // Get exit code of thread
-            if GetExitCodeThread(hThread, ThreadExitCode) then
+            if GetExitCodeThread(hThread,  // HANDLE  hThread
+              ThreadExitCode) then         // LPDWORD lpExitCode
             begin
               if ThreadExitCode <> 0 then
                 result := 0

@@ -31,11 +31,11 @@ function ExpandEnvStrings(const Name: UnicodeString): UnicodeString;
 
 // Converts the specified string to a Unicode string using the
 // MultiByteToWideChar() API and returns the result.
-function StringToUnicodeString(const S: string): UnicodeString;
+function StringToUnicodeString(const S: string; const CodePage: UINT): UnicodeString;
 
 // Converts the specified Unicode string to a string using the
 // WideCharToMultiByte() API and returns the result.
-function UnicodeStringToString(const S: UnicodeString): string;
+function UnicodeStringToString(const S: UnicodeString; const CodePage: UINT): string;
 
 implementation
 
@@ -61,14 +61,14 @@ begin
   end;
 end;
 
-function StringToUnicodeString(const S: string): UnicodeString;
+function StringToUnicodeString(const S: string; const CodePage: UINT): UnicodeString;
 var
   NumChars, BufSize: DWORD;
   pBuffer: PWideChar;
 begin
   result := '';
   // Get number of characters needed for buffer
-  NumChars := MultiByteToWideChar(CP_OEMCP,  // UINT   CodePage
+  NumChars := MultiByteToWideChar(CodePage,  // UINT   CodePage
     0,                                       // DWORD  dwFlags
     PChar(S),                                // LPCCH  lpMultiByteStr
     -1,                                      // int    cbMultiByte
@@ -78,7 +78,7 @@ begin
   begin
     BufSize := NumChars * SizeOf(WideChar);
     GetMem(pBuffer, BufSize);
-    if MultiByteToWideChar(CP_OEMCP,  // UINT   CodePage
+    if MultiByteToWideChar(CodePage,  // UINT   CodePage
       0,                              // DWORD  dwFlags
       PChar(S),                       // LPCCH  lpMultiByteStr
       -1,                             // int    cbMultiByte
@@ -89,14 +89,14 @@ begin
   end;
 end;
 
-function UnicodeStringToString(const S: UnicodeString): string;
+function UnicodeStringToString(const S: UnicodeString; const CodePage: UINT): string;
 var
   NumChars, BufSize: DWORD;
   pBuffer: PChar;
 begin
   result := '';
   // Get number of characters needed for buffer
-  NumChars := WideCharToMultiByte(CP_OEMCP,  // UINT   CodePage
+  NumChars := WideCharToMultiByte(CodePage,  // UINT   CodePage
     0,                                       // DWORD  dwFlags
     PWideChar(S),                            // LPCWCH lpWideCharStr
     -1,                                      // int    cchWideChar
@@ -108,7 +108,7 @@ begin
   begin
     BufSize := NumChars * SizeOf(Char);
     GetMem(pBuffer, BufSize);
-    if WideCharToMultiByte(CP_OEMCP,  // UINT   CodePage
+    if WideCharToMultiByte(CodePage,  // UINT   CodePage
       0,                              // DWORD  dwFlags
       PWideChar(S),                   // LPCWCH lpWideCharStr
       -1,                             // int    cchWideChar

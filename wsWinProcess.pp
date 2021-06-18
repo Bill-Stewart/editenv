@@ -25,12 +25,18 @@ interface
 uses
   Windows;
 
+// Gets the path and filename of the currently running executable
+function GetExecutablePath(): UnicodeString;
+
+// Gets the version number of the specified file as a string
+function GetFileVersion(const FileName: UnicodeString): UnicodeString;
+
 // Retrieves the parent process ID of the current process into the ProcessID
-// parameter. Returns zero for success, or non-zero for failure.
+// parameter; returns zero for success, or non-zero for failure
 function GetParentProcessID(var ProcessID: DWORD): DWORD;
 
 // Returns whether the current process and the specified process match
-// "bitness" (i.e., both 32-bit or both 64-bit).
+// "bitness" (i.e., both 32-bit or both 64-bit)
 function CurrentProcessMatchesProcessBits(const ProcessID: DWORD): Boolean;
 
 implementation
@@ -58,6 +64,66 @@ type
   TProcess32First = function(hSnapshot: HANDLE; var lppe: TProcessEntry32): BOOL; stdcall;
   TProcess32Next = function(hSnapshot: HANDLE; var lppe: TProcessEntry32): BOOL; stdcall;
   TIsWow64Process = function(hProcess: HANDLE; var Wow64Process: BOOL): BOOL; stdcall;
+
+function GetExecutablePath(): UnicodeString;
+var
+  NumChars, BufSize: DWORD;
+  pBuffer: PWideChar;
+begin
+  result := '';
+  // GetModuleFileNameW() doesn't let us determine the needed length of the
+  // string by setting third parameter to zero, so just create a 64K buffer
+  NumChars := 32768;
+  BufSize := NumChars * SizeOf(WideChar);
+  GetMem(pBuffer, BufSize);
+  NumChars := GetModuleFileNameW(0,  // HMODULE hModule
+    pBuffer,                         // LPWSTR  lpFilename
+    NumChars);                       // DWORD   nSize
+  if (NumChars > 0) and (GetLastError() = ERROR_SUCCESS) then
+    result := pBuffer;
+  FreeMem(pBuffer, BufSize);
+end;
+
+function IntToStr(const I: LongInt): UnicodeString;
+begin
+  Str(I, result);
+end;
+
+function GetFileVersion(const FileName: UnicodeString): UnicodeString;
+var
+  VerInfoSize, Handle: DWORD;
+  pBuffer: Pointer;
+  pFileInfo: ^VS_FIXEDFILEINFO;
+  Len: UINT;
+begin
+  result := '';
+  VerInfoSize := GetFileVersionInfoSizeW(PWideChar(FileName),  // LPCWSTR lptstrFilename
+    Handle);                                                   // LPDWORD lpdwHandle
+  if VerInfoSize > 0 then
+  begin
+    GetMem(pBuffer, VerInfoSize);
+    if GetFileVersionInfoW(PWideChar(FileName),  // LPCWSTR lptstrFilename
+      Handle,                                    // DWORD   dwHandle
+      VerInfoSize,                               // DWORD   dwLen
+      pBuffer) then                              // LPVOID  lpData
+    begin
+      if VerQueryValueW(pBuffer,  // LPCVOID pBlock
+        '\',                      // LPCWSTR lpSubBlock
+        pFileInfo,                // LPVOID  *lplpBuffer
+        Len) then                 // PUINT   puLen
+      begin
+        with pFileInfo^ do
+        begin
+          result := IntToStr(HiWord(dwFileVersionMS)) + '.' +
+            IntToStr(LoWord(dwFileVersionMS)) + '.' +
+            IntToStr(HiWord(dwFileVersionLS));
+          // LoWord(dwFileVersionLS) intentionally omitted
+        end;
+      end;
+    end;
+    FreeMem(pBuffer, VerInfoSize);
+  end;
+end;
 
 function GetParentProcessID(var ProcessID: DWORD): DWORD;
 var

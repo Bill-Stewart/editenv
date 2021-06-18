@@ -1,16 +1,18 @@
 # editenv
 
-# Author
+**editenv** allows interactive editing of environment variables in a Windows console.
 
-Bill Stewart - bstewart at iname.com
+## Copyright and Author
 
-# License
+Copyright (C) 2020-2021 by Bill Stewart (bstewart at iname.com)
+
+## License
 
 **editenv** is covered by the GNU Public License (GPL). See the file `LICENSE` for details.
 
-## Synopsis
+## Download
 
-**editenv** is a Windows console program that lets you interactively edit the value of an environment variable.
+https://github.com/Bill-Stewart/editenv/releases
 
 ## Usage
 
@@ -104,6 +106,8 @@ The `Enter` key does nothing if you use the **--minlength** (**-n**) parameter a
 * The **--timeout** (**-t**) parameter does not use a high-precision timer.
 
 * The **--maskinput** (**-m**) parameter is not encrypted or secure.
+
+* The **--allowedchars** (**-a**) and **--disallowchars** (**-D**) parameters only support arguments containing 7-bit ASCII characters. (Characters outside of this range currently create difficulties with code page conversions.)
 
 * There is no visual indication of insert vs. overtype mode.
 

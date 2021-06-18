@@ -33,22 +33,20 @@ const
 type
   TLineEditor = class
   private
-    type
-    TCharSet = set of Char;
   var
-    AllowedCharSet:    TCharSet;  // characters allowed for input
-    DisallowedCharSet: TCharSet;  // characters disallowed for input
-    WordDelims:        TCharSet;  // word delimiter characters
-    IsCanceled:        Boolean;   // true if Ctrl+C pressed
-    IsTimedOut:        Boolean;   // true if timeout elapsed
-    InputComplete:     Boolean;   // true if Enter pressed and <= MinLen
-    TimeoutSecs:       Word;      // times out after this many seconds
-    MaxLen:            Word;      // maximum allowed # of characters
-    MinLen:            Word;      // minimum length # chars required
-    CurrMaxLen:        Word;      // grows as line length increases
-    Line:              string;    // line of text we're editing
-    BackupLine:        string;    // backup copy for Revert() method
-    CurrPos:           LongInt;   // current cursor position in string
+    AllowedCharList:    AnsiString;  // characters allowed for input
+    DisallowedCharList: AnsiString;  // characters disallowed for input
+    WordDelimCharList:  AnsiString;  // word delimiter characters
+    IsCanceled:         Boolean;     // true if Ctrl+C pressed
+    IsTimedOut:         Boolean;     // true if timeout elapsed
+    InputComplete:      Boolean;     // true if Enter pressed and <= MinLen
+    TimeoutSecs:        Word;        // times out after this many seconds
+    MaxLen:             Word;        // maximum allowed # of characters
+    MinLen:             Word;        // minimum length # chars required
+    CurrMaxLen:         Word;        // grows as line length increases
+    Line:               AnsiString;  // line of text we're editing
+    BackupLine:         AnsiString;  // backup copy for Revert() method
+    CurrPos:            LongInt;     // current cursor position in string
     function KeyPressedWithinTimeout(const Secs: Word): Boolean;
     procedure SetMaxLength(const MaxLength: Word);
     function GetMaxLength(): Word;
@@ -56,17 +54,19 @@ type
     procedure SetMinLength(const MinLength: Word);
     procedure SetTimeout(const Seconds: Word);
     function GetTimeout(): Word;
-    function StringToCharSet(const Text: string): TCharSet;
-    procedure SetWordDelims(const NewDelimiters: string);
-    procedure SetAllowedChars(const AllowedChars: string);
-    procedure SetDisallowedChars(const DisallowedChars: string);
+    function StringToCharList(const Text: AnsiString): AnsiString;
+    procedure SetWordDelims(const NewDelimiters: AnsiString);
+    procedure SetAllowedChars(const AllowedChars: AnsiString);
+    function GetAllowedChars(): AnsiString;
+    procedure SetDisallowedChars(const DisallowedChars: AnsiString);
+    function GetDisallowedChars(): AnsiString;
     procedure EditCursorLeft(const NumChars: LongInt);
     procedure EditCursorRight(const NumChars: LongInt);
     procedure BegLine();
     procedure EndLine();
     procedure ShowLine();
     procedure DeleteLine();
-    procedure InsertChar(Ch: Char);
+    procedure InsertChar(Ch: AnsiChar);
     procedure DeleteChar();
     procedure Backspace();
     procedure DeleteToBOL();
@@ -81,19 +81,19 @@ type
   var
     InsertMode: Boolean;
     MaskInput:  Boolean;
-    MaskChar:   Char;
+    MaskChar:   WideChar;
     StartAtBOL: Boolean;
     property Canceled: Boolean read IsCanceled;
     property TimedOut: Boolean read IsTimedOut;
     property MaxLength: Word read GetMaxLength write SetMaxLength;
     property MinLength: Word read GetMinLength write SetMinLength;
     property Timeout: Word read GetTimeout write SetTimeout;
-    property AllowedChars: string write SetAllowedChars;
-    property DisallowChars: string write SetDisallowedChars;
-    property WordDelimiters: string write SetWordDelims;
+    property AllowedChars: AnsiString read GetAllowedChars write SetAllowedChars;
+    property DisallowChars: AnsiString read GetDisallowedChars write SetDisallowedChars;
+    property WordDelimiters: AnsiString write SetWordDelims;
     constructor Create();
     destructor Destroy(); override;
-    function EditLine(const Text: string): string;
+    function EditLine(const Text: AnsiString): AnsiString;
   end;
 
 implementation
@@ -115,29 +115,39 @@ begin
   end;
 end;
 
-// Returns a set containing the characters in the specified string
-function TLineEditor.StringToCharSet(const Text: string): TCharSet;
+function TLineEditor.StringToCharList(const Text: AnsiString): AnsiString;
 var
   I: LongInt;
 begin
-  result := [];
+  result := '';
   for I := 1 to Length(Text) do
-    Include(result, Text[I]);
+    if Pos(Text[I], result) = 0 then
+      result := result + Text[I];
 end;
 
-procedure TLineEditor.SetWordDelims(const NewDelimiters: string);
+procedure TLineEditor.SetWordDelims(const NewDelimiters: AnsiString);
 begin
-  WordDelims := StringToCharSet(NewDelimiters);
+  WordDelimCharList := StringToCharList(NewDelimiters);
 end;
 
-procedure TLineEditor.SetAllowedChars(const AllowedChars: string);
+procedure TLineEditor.SetAllowedChars(const AllowedChars: AnsiString);
 begin
-  AllowedCharSet := StringToCharSet(AllowedChars);
+  AllowedCharList := StringToCharList(AllowedChars);
 end;
 
-procedure TLineEditor.SetDisallowedChars(const DisallowedChars: string);
+function TLineEditor.GetAllowedChars(): AnsiString;
 begin
-  DisallowedCharSet := StringToCharSet(DisallowedChars);
+  result := AllowedCharList;
+end;
+
+procedure TLineEditor.SetDisallowedChars(const DisallowedChars: AnsiString);
+begin
+  DisallowedCharList := StringToCharList(DisallowedChars);
+end;
+
+function TLineEditor.GetDisallowedChars(): AnsiString;
+begin
+  result := DisallowedCharList;
 end;
 
 function TLineEditor.GetMaxLength(): Word;
@@ -184,9 +194,9 @@ begin
   MinLen := 0;
   Timeout := 0;
   StartAtBOL := false;
-  AllowedCharSet := [];
-  DisallowedCharSet := [];
-  WordDelims := StringToCharSet(#9 + ' ;/\');
+  AllowedCharList := '';
+  DisallowedCharList := '';
+  WordDelimCharList := StringToCharList(#9 + ' ;/\');
 end;
 
 destructor TLineEditor.Destroy();
@@ -244,12 +254,12 @@ end;
 
 procedure TLineEditor.ShowLine();
 var
-  Part: string;
+  Part: AnsiString;
 begin
   SetLength(Part, CurrMaxLen);
   FillChar(Pointer(Part)^, CurrMaxLen, ' ');
   if MaskInput then
-    FillChar(Pointer(Part)^, Length(Line), MaskChar)
+    FillChar(Pointer(Part)^, Length(Line), AnsiChar(MaskChar))
   else
     Move(Pointer(Line)^, Pointer(Part)^, Length(Line));
   if CurrPos > 1 then
@@ -272,7 +282,7 @@ begin
   end;
 end;
 
-procedure TLineEditor.InsertChar(Ch: Char);
+procedure TLineEditor.InsertChar(Ch: AnsiChar);
 begin
   if (InsertMode and (Length(Line) < MaxLen)) or (not InsertMode and (CurrPos <= MaxLen)) then
   begin
@@ -290,7 +300,7 @@ begin
       Write(MaskChar)
     else
       Write(Ch);
-    Inc(CurrPos);
+    Inc(CurrPos, 1);
     if Length(Line) > CurrMaxLen then  // grow CurrMaxLen as needed
       CurrMaxLen := Length(Line);
     ShowLine();
@@ -368,7 +378,7 @@ begin
     begin
       repeat
         Dec(I);
-      until (I = 1) or ((Line[I - 1] in WordDelims) and (not (Line[I] in WordDelims)));
+      until (I = 1) or ((Pos(Line[I - 1], WordDelimCharList) > 0) and (Pos(Line[I], WordDelimCharList) = 0));
       EditCursorLeft(CurrPos - I);
     end;
   end;
@@ -385,7 +395,7 @@ begin
     begin
       repeat
         Inc(I);
-      until (I = Length(Line) + 1) or ((Line[I - 1] in WordDelims) and (not (Line[I] in WordDelims)));
+      until (I = Length(Line) + 1) or ((Pos(Line[I - 1], WordDelimCharList) > 0) and (Pos(Line[I], WordDelimCharList) = 0));
       EditCursorRight(I - CurrPos);
     end;
   end;
@@ -428,11 +438,11 @@ begin
   end;
 end;
 
-function TLineEditor.EditLine(const Text: string): string;
+function TLineEditor.EditLine(const Text: AnsiString): AnsiString;
 var
   Key: TKeyEvent;
-  KeyString: string;
-  KeyChar: Char;
+  KeyString: AnsiString;
+  KeyChar: AnsiChar;
 begin
   IsCanceled := false;
   IsTimedOut := false;
@@ -487,26 +497,26 @@ begin
       if (GetKeyEventFlags(Key) = kbASCII) or (GetKeyEventFlags(Key) = kbUnicode) then
       begin
         case Ord(KeyChar) of
-          1: BegLine();      // Ctrl+A
-          2: ;
-          3: Cancel();       // Ctrl+C
-          4: ;
-          5: EndLine();      // Ctrl+E
-          6..7: ;
-          8: Backspace();    // Ctrl+H/Backspace
-          9..12: ;
-          13: Enter();       // Enter
+          1:      BegLine();     // Ctrl+A
+          2:      ;
+          3:      Cancel();      // Ctrl+C
+          4:      ;
+          5:      EndLine();     // Ctrl+E
+          6..7:   ;
+          8:      Backspace();   // Ctrl+H/Backspace
+          9..12:  ;
+          13:     Enter();       // Enter
           14..20: ;
-          21, 26: Revert();  // Ctrl+U or Ctrl+Z
+          21, 26: Revert();      // Ctrl+U or Ctrl+Z
           22..25: ;
-          27: DeleteLine();  // Esc
+          27:     DeleteLine();  // Esc
           28..31: ;
-          127: Backspace();  // Ctrl+Backspace
+          127:    Backspace();   // Ctrl+Backspace
         else
           begin
-            if (DisallowedCharSet = []) or (not (KeyChar in DisallowedCharSet)) then
+            if (DisallowedCharList = '') or (Pos(KeyChar, DisallowedCharList) = 0) then
             begin
-              if (AllowedCharSet = []) or (KeyChar in AllowedCharSet) then
+              if (AllowedCharList = '') or (Pos(KeyChar, AllowedCharList) > 0) then
                 InsertChar(KeyChar);
             end;
           end;
