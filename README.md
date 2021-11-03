@@ -25,9 +25,10 @@ https://github.com/Bill-Stewart/editenv/releases
 | **--disallowchars=**...   | **-D** ... | Disallows input of specified characters
 | **--disallowquotes**      | **-d**     | Disallows input of `"` character
 | **--emptyinputallowed**   | **-e**     | Empty input is allowed to remove variable
+| **--getmaxlength**        |            | Outputs maximum possible input length
 | **--help**                | **-h**     | Displays usage information
 | **--minlength=**_n_       | **-n** _n_ | Input must be at least _n_ character(s)
-| **--maxlength=**_n_       | **-x** _n_ | Input cannot be longer than _n_ character(s)
+| **--maxlength=**_n_       | **-x** _n_ | Limit input length to _n_ character(s)
 | **--maskinput**[**=**_x_] | **-m** _x_ | Masks input using character _x_ (default=`*`)
 | **--overtypemode**        | **-o**     | Starts line editor in overtype mode
 | **--prompt=**...          | **-p** ... | Specifies an input prompt
@@ -48,7 +49,9 @@ https://github.com/Bill-Stewart/editenv/releases
 
 * You cannot specify the **--minlength** (**-n**) parameter with either the **--emptyinputallowed** (**-e**) or **--timeout** (**-t**) parameters.
 
-* An argument of `0` for **--maxlength** (**-x**) means "no maximum length" (up to maximum allowed length: See **Notes/Limitations** section, below).
+* An argument of `0` for **--maxlength** (**-x**) means "maximum allowable length" (see **Notes/Limitations** section, below).
+
+* The **--getmaxlength** parameter outputs the maximum possible input length (see **Maximum Input Length** section, below).
 
 * It is recommended to specify parameters at the beginning of the command line (in any order) and the environment variable name at the end of the command line.
 
@@ -95,13 +98,21 @@ The `Enter` key does nothing if you use the **--minlength** (**-n**) parameter a
 
 * In PowerShell, you can check the exit code using the `$LASTEXITCODE` variable.
 
+## Maximum Input Length
+
+The maximum possible number of input characters depends on whether the current session is a standard Windows console or a Windows Terminal (WT) console. A WT console is detected by the presence of the `WT_SESSION` environment variable.
+
+* In a standard Windows console, the maximum possible number of input characters is the number of rows * the number of columns in the console buffer or 16383, whichever is less. The standard Windows console allows the cursor to move back past the top of the current screenful into the scrollback buffer, which means it is possible to edit an environment variable that has a value longer than will fit in the current screenful.
+
+* In a WT console, the maximum possible number of inputt characters is the number of rows * the number of columns or 16383 (whichever is less) in the current screenful only. WT does not allow the cursor to move "backwards" past the top of the current screenful into the scrollback buffer, which means it is not possible to edit an environment variable that has a value longer than will fit in the current screenful. (You can work around this limitation in a WT session by expanding the WT window such that it has a larger number of rows and/or columns before running **editenv**).
+
+* The **--getmaxlength** parameter outputs the maximum possible input length.
+
 ## Notes/Limitations
 
 * The environment variable's name cannot contain the `=` character.
 
 * The environment variable's name is limited to 127 characters.
-
-* The environment variable's value is limited to 16383 characters.
 
 * The **--timeout** (**-t**) parameter does not use a high-precision timer.
 
@@ -112,6 +123,10 @@ The `Enter` key does nothing if you use the **--minlength** (**-n**) parameter a
 * There is no visual indication of insert vs. overtype mode.
 
 * **editenv** does not work from the PowerShell ISE.
+
+* **editenv** does not detect window size changes while it is running.
+
+* The maximum possible input length depends on whether **editenv** is running in a standard Windows console or a Windows Terminal (WT) console (see the **Maximum Input Length** section, above).
 
 ## Examples
 

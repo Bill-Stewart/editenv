@@ -23,6 +23,7 @@ unit wsWinConsole;
 interface
 
 uses
+  wsWinEnvVar,
   Windows;
 
 // Disable Ctrl+C as signal and ignore Ctrl+Break
@@ -43,6 +44,16 @@ procedure MoveCursorLeft(const NumChars: LongInt);
 // Moves cursor right, taking into account line wrap
 procedure MoveCursorRight(const NumChars: LongInt);
 
+function GetConsoleCols(): DWORD;
+
+function GetConsoleColsViewport(): DWORD;
+
+function GetConsoleRows(): DWORD;
+
+function GetConsoleRowsViewport(): DWORD;
+
+function IsWindowsTerminal(): Boolean;
+
 implementation
 
 type
@@ -51,7 +62,7 @@ type
 var
   CONIN, CONOUT: HANDLE;
   CSBInfo: CONSOLE_SCREEN_BUFFER_INFO;
-  ConsoleWidth, ConsoleHeight: LongInt;
+  ConsoleCols, ConsoleColsViewport, ConsoleRows, ConsoleRowsViewport: DWORD;
 
 // Windows console signal handler routine
 function HandlerRoutine(const dwControlType: DWORD): BOOL; stdcall;
@@ -105,7 +116,7 @@ procedure GotoXY(const PosX, PosY: LongInt);
 var
   CoordCursor: COORD;
 begin
-  if (PosX >= 1) and (PosX <= ConsoleWidth) and (PosY >= 1) and (PosY <= ConsoleHeight) then
+  if (PosX >= 1) and (PosX <= ConsoleCols) and (PosY >= 1) and (PosY <= ConsoleRows) then
   begin
     CoordCursor.X := PosX - 1;
     CoordCursor.Y := PosY - 1;
@@ -126,7 +137,7 @@ begin
     begin
       if Y > 1 then         // if we're past row 1
       begin
-        X := ConsoleWidth;  // move to last column
+        X := ConsoleCols;   // move to last column
         Dec(Y);             // on previous row
       end;
     end
@@ -145,9 +156,9 @@ begin
   Y := WhereY();
   for I := 1 to NumChars do
   begin
-    if X = ConsoleWidth then
+    if X = ConsoleCols then
     begin
-      if Y < ConsoleHeight then
+      if Y < ConsoleRows then
       begin
         X := 1;  // move to first column
         Inc(Y);  // on next row
@@ -157,6 +168,32 @@ begin
       Inc(X);    // move right one column
   end;
   GotoXY(X, Y);
+end;
+
+function GetConsoleCols(): DWORD;
+begin
+  result := ConsoleCols;
+end;
+
+function GetConsoleColsViewport(): DWORD;
+begin
+  result := ConsoleColsViewport;
+end;
+
+function GetConsoleRows(): DWORD;
+begin
+  result := ConsoleRows;
+end;
+
+function GetConsoleRowsViewport(): DWORD;
+begin
+  result := ConsoleRowsViewport;
+end;
+
+function IsWindowsTerminal(): Boolean;
+begin
+  // https://github.com/microsoft/terminal/pull/897
+  result := EnvVarExists('WT_SESSION');
 end;
 
 procedure InitializeUnit();
@@ -181,8 +218,10 @@ begin
     0,                             // DWORD                 dwFlagsAndAttributes
     0);                            // HANDLE                hTemplateFile
   GetConsoleScreenBufferInfo(CONOUT, CSBInfo);
-  ConsoleWidth := CSBInfo.dwSize.X;
-  ConsoleHeight := CSBInfo.dwSize.Y;
+  ConsoleCols := CSBInfo.dwSize.X;
+  ConsoleColsViewport := CSBInfo.srWindow.Right - CSBInfo.srWindow.Left + 1;
+  ConsoleRows := CSBInfo.dwSize.Y;
+  ConsoleRowsViewport := CSBInfo.srWindow.Bottom - CSBInfo.srWindow.Top + 1;
 end;
 
 initialization

@@ -1,9 +1,0 @@
-editenv.ico
-editenv.pp
-editenv.rc
-wsWinConsole.pp
-wsWinEnvVar.pp
-wsWinLineEditor.pp
-wsWinMessage.pp
-wsWinProcess.pp
-wsWinString.pp

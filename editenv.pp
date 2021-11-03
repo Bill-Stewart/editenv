@@ -28,6 +28,7 @@ program editenv;
 uses
   getopts,
   Windows,
+  wsWinConsole,
   wsWinEnvVar,
   wsWinLineEditor,
   wsWinMessage,
@@ -47,6 +48,7 @@ type
     Debug:             Boolean;        // --debug
     DisallowChars:     AnsiString;     // --disallowchars and --disallowquotes
     EmptyInputAllowed: Boolean;        // --emptyinputallowed
+    GetMaxLength:      Boolean;        // --getmaxlength
     Help:              Boolean;        // --help
     MaxLength:         Word;           // --maxlength
     MaskInput:         Boolean;        // --maskinput
@@ -57,6 +59,7 @@ type
     Quiet:             Boolean;        // --quiet
     Timeout:           Word;           // --timeout
     EnvVarName:        UnicodeString;  // name of env var to edit
+    MaxWindowChars:    LongInt;        // maximum # of characters we can edit
     function IsValidCharList(const S: AnsiString): boolean;
     function LongIntToUnicodeString(const N: LongInt): UnicodeString;
     function AnsiStringToLongInt(const S: AnsiString; var N: LongInt): Boolean;
@@ -91,10 +94,11 @@ begin
   WriteLn('--disallowchars=... -D ...  Disallows input of specified characters');
   WriteLn('--disallowquotes    -d      Disallows input of " character');
   WriteLn('--emptyinputallowed -e      Empty input is allowed to remove variable');
+  WriteLn('--getmaxlength              Outputs maximum possible input length');
   WriteLn('--help              -h      Displays usage information');
   WriteLn('--maskinput[=x]     -m x    Masks input using character x (default=*)');
   WriteLn('--minlength=n       -n n    Input must be at least n character(s)');
-  WriteLn('--maxlength=n       -x n    Input cannot be longer than n character(s)');
+  WriteLn('--maxlength=n       -x n    Limit input length to n character(s)');
   WriteLn('--overtypemode      -o      Starts line editor in overtype mode');
   WriteLn('--prompt=...        -p ...  Specifies an input prompt');
   WriteLn('--quiet             -q      Suppresses error messages');
@@ -143,11 +147,12 @@ begin
   WriteLn();
   WriteLn('* The environment variable''s name cannot contain the = character');
   WriteLn('* The environment variable''s name is limited to ', MAX_ENVVAR_NAME_LENGTH, ' characters');
-  WriteLn('* The environment variable''s value is limited to ', MAX_ENVVAR_VALUE_LENGTH, ' characters');
   WriteLn('* The --timeout (-t) parameter does not use a high-precision timer');
   WriteLn('* The --maskinput (-m) parameter is not encrypted or secure');
   WriteLn('* There is no visual indication of insert vs. overtype mode');
   WriteLn('* Does not work from the PowerShell ISE');
+  WriteLn('* Window size changes are not detected while the program is running');
+  WriteLn('* Input length in Windows Terminal is limited to the current screen');
 end;
 
 function TCommandLine.IsValidCharList(const S: AnsiString): boolean;
@@ -184,7 +189,7 @@ end;
 // Parse the command line
 procedure TCommandLine.Parse();
 var
-  LongOpts: array[1..16] of TOption;
+  LongOpts: array[1..17] of TOption;
   Opt: Char;
   I, IntArg: LongInt;
 begin
@@ -234,12 +239,19 @@ begin
   end;
   with LongOpts[7] do
   begin
+    Name := 'getmaxlength';
+    Has_arg := No_Argument;
+    Flag := nil;
+    Value := #0;
+  end;
+  with LongOpts[8] do
+  begin
     Name := 'help';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'h';
   end;
-  with LongOpts[8] do
+  with LongOpts[9] do
   begin
     // --limitlength (-l) deprecated in favor of --maxlength (-x)
     Name := 'limitlength';
@@ -247,56 +259,56 @@ begin
     Flag := nil;
     Value := 'l';
   end;
-  with LongOpts[9] do
+  with LongOpts[10] do
   begin
     Name := 'maskinput';
     Has_arg := Optional_Argument;
     Flag := nil;
     Value := 'm';
   end;
-  with LongOpts[10] do
+  with LongOpts[11] do
   begin
     Name := 'maxlength';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 'x';
   end;
-  with LongOpts[11] do
+  with LongOpts[12] do
   begin
     Name := 'minlength';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 'n';
   end;
-  with LongOpts[12] do
+  with LongOpts[13] do
   begin
     Name := 'overtypemode';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'o';
   end;
-  with LongOpts[13] do
+  with LongOpts[14] do
   begin
     Name := 'prompt';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 'p';
   end;
-  with LongOpts[14] do
+  with LongOpts[15] do
   begin
     Name := 'quiet';
     Has_arg := No_Argument;
     Flag := nil;
     Value := 'q';
   end;
-  with LongOpts[15] do
+  with LongOpts[16] do
   begin
     Name := 'timeout';
     Has_arg := Required_Argument;
     Flag := nil;
     Value := 't';
   end;
-  with LongOpts[16] do
+  with LongOpts[17] do
   begin
     Name := '';
     Has_arg := No_Argument;
@@ -310,6 +322,7 @@ begin
   BeginningOfLine := false;
   DisallowChars := '';
   EmptyInputAllowed := false;
+  GetMaxLength := false;
   Help := false;
   MaxLength := 0;
   MaskInput := false;
@@ -320,6 +333,7 @@ begin
   Quiet := false;
   Timeout := 0;
   EnvVarName := '';
+  MaxWindowChars := 0;
   OptErr := false;  // no error outputs from getopts
   repeat
     Opt := GetLongOpts('a:bD:dehm::n:x:l:op:qt:', @LongOpts, I);
@@ -414,6 +428,7 @@ begin
       begin
         case LongOpts[I].Name of
           'debug': Debug := true;
+          'getmaxlength': GetMaxLength := true;
         end; //case
       end;
       '?':
@@ -425,17 +440,27 @@ begin
   until Opt = EndOfOptions;
   if ErrorCode <> 0 then
     exit();
-  EnvVarName := StringToUnicodeString(ParamStr(OptInd), CP_ACP);
-  if EnvVarName = '' then
+  // Get upper limit of number of characters we can edit; if running Windows
+  // Terminal, max # characters is what is visible in the viewport
+  // (https://github.com/microsoft/terminal/issues/10191#issuecomment-897345862)
+  if not IsWindowsTerminal() then
+    MaxWindowChars := GetConsoleRows() * GetConsoleCols()
+  else
+    MaxWindowChars := GetConsoleRowsViewport() * GetConsoleColsViewport();
+  MaxWindowChars := MaxWindowChars - Length(Prompt) - 1;
+  if MaxLength = 0 then
   begin
-    ErrorCode := ERROR_INVALID_PARAMETER;
-    ErrorMessage := 'Environment variable name not specified';
-    exit();
+    if MaxWindowChars > MAX_ENVVAR_VALUE_LENGTH then
+      MaxLength := MAX_ENVVAR_VALUE_LENGTH
+    else
+    begin
+      MaxLength := MaxWindowChars;
+    end;
   end;
-  if Pos('=', EnvVarName) > 0 then
+  if MaxLength > MaxWindowChars then
   begin
-    ErrorCode := ERROR_INVALID_PARAMETER;
-    ErrorMessage := 'Environment variable name cannot contain = character';
+    ErrorCode := ERROR_INSUFFICIENT_BUFFER;
+    ErrorMessage := '--maxlength (-x) parameter cannot exceed ' + LongIntToUnicodeString(MaxWindowChars) + ' characters';
     exit();
   end;
   if MinLength > 0 then
@@ -458,6 +483,21 @@ begin
       exit();
     end;
   end;
+  if GetMaxLength then
+    exit();
+  EnvVarName := StringToUnicodeString(ParamStr(OptInd), CP_ACP);
+  if EnvVarName = '' then
+  begin
+    ErrorCode := ERROR_INVALID_PARAMETER;
+    ErrorMessage := 'Environment variable name not specified';
+    exit();
+  end;
+  if Pos('=', EnvVarName) > 0 then
+  begin
+    ErrorCode := ERROR_INVALID_PARAMETER;
+    ErrorMessage := 'Environment variable name cannot contain = character';
+    exit();
+  end;
   if Length(EnvVarName) > MAX_ENVVAR_NAME_LENGTH then
   begin
     ErrorCode := ERROR_INSUFFICIENT_BUFFER;
@@ -477,10 +517,11 @@ begin
 end;
 
 begin
+  ExitCode := 0;
+
   if (ParamCount = 0) or (ParamStr(1) = '/?') then
   begin
     Usage();
-    ExitCode := 0;
     exit();
   end;
 
@@ -498,6 +539,11 @@ begin
   begin
     Usage();
     ExitCode := 0;
+  end;
+
+  if CommandLine.GetMaxLength then
+  begin
+    WriteLn(CommandLine.MaxLength);
     exit();
   end;
 
@@ -537,8 +583,9 @@ begin
     exit();
   end;
 
-  // fail if environment variable value is too long
   VarValue := GetEnvVar(CommandLine.EnvVarName);
+
+  // fail if environment variable value is too long
   if Length(VarValue) > MAX_ENVVAR_VALUE_LENGTH then
   begin
     ExitCode := ERROR_INSUFFICIENT_BUFFER;
@@ -556,9 +603,6 @@ begin
     exit();
   end;
 
-  if CommandLine.Prompt <> '' then
-    Write(CommandLine.Prompt);
-
   // Create instance
   Editor := TLineEditor.Create();
 
@@ -575,9 +619,10 @@ begin
   Editor.Timeout := CommandLine.Timeout;
 
   {$IFDEF DEBUG}
-  // Handy for viewing effects of code page differences
   if CommandLine.Debug then
   begin
+    WriteLn('MaxWindowChars             [', CommandLine.MaxWindowChars, ']');
+    WriteLn('MaxLength                  [', CommandLine.MaxLength, ']');
     if Editor.AllowedChars <> '' then
       WriteLn('--allowedchars             [', Editor.AllowedChars, ']');
     if Editor.DisallowChars <> '' then
@@ -587,6 +632,9 @@ begin
     WriteLn('Environment variable name  [', CommandLine.EnvVarName, ']');
   end;
   {$ENDIF}
+
+  if CommandLine.Prompt <> '' then
+    Write(CommandLine.Prompt);
 
   // Start the editor
   NewValue := Editor.EditLine(UnicodeStringToString(VarValue, CP_ACP));
