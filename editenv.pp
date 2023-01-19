@@ -1,7 +1,7 @@
 { editenv - Windows console program for interactively editing the value of an
   environment variable
 
-  Copyright (C) 2020-2021 by Bill Stewart (bstewart at iname.com)
+  Copyright (C) 2020-2023 by Bill Stewart (bstewart at iname.com)
 
   This program is free software: you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free Software
@@ -37,7 +37,7 @@ uses
 
 const
   PROGRAM_NAME = 'editenv';
-  PROGRAM_COPYRIGHT = 'Copyright (C) 2020-2021 by Bill Stewart';
+  PROGRAM_COPYRIGHT = 'Copyright (C) 2020-2023 by Bill Stewart';
 
 type
   TCommandLine = object

@@ -4,7 +4,7 @@
 
 ## Copyright and Author
 
-Copyright (C) 2020-2021 by Bill Stewart (bstewart at iname.com)
+Copyright (C) 2020-2023 by Bill Stewart (bstewart at iname.com)
 
 ## License
 
@@ -104,7 +104,7 @@ The maximum possible number of input characters depends on whether the current s
 
 * In a standard Windows console, the maximum possible number of input characters is the number of rows * the number of columns in the console buffer or 16383, whichever is less. The standard Windows console allows the cursor to move back past the top of the current screenful into the scrollback buffer, which means it is possible to edit an environment variable that has a value longer than will fit in the current screenful.
 
-* In a WT console, the maximum possible number of inputt characters is the number of rows * the number of columns or 16383 (whichever is less) in the current screenful only. WT does not allow the cursor to move "backwards" past the top of the current screenful into the scrollback buffer, which means it is not possible to edit an environment variable that has a value longer than will fit in the current screenful. (You can work around this limitation in a WT session by expanding the WT window such that it has a larger number of rows and/or columns before running **editenv**).
+* In a WT console, the maximum possible number of input characters is the number of rows * the number of columns or 16383 (whichever is less) in the current screenful only. WT does not allow the cursor to move "backwards" past the top of the current screenful into the scrollback buffer, which means it is not possible to edit an environment variable that has a value longer than will fit in the current screenful. (You can work around this limitation in a WT session by expanding the WT window such that it has a larger number of rows and/or columns before running **editenv**).
 
 * The **--getmaxlength** parameter outputs the maximum possible input length.
 

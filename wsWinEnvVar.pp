@@ -1,4 +1,4 @@
-{ Copyright (C) 2020-2021 by Bill Stewart (bstewart at iname.com)
+{ Copyright (C) 2020-2023 by Bill Stewart (bstewart at iname.com)
 
   This program is free software: you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free Software
@@ -202,72 +202,70 @@ begin
   hProcess := OpenProcess(ProcessAccess,  // DWORD dwDesiredAccess
     true,                                 // BOOL  bInheritHandle
     ProcessID);                           // DWORD dwProcessId
-  if hProcess <> 0 then
+  if hProcess = 0 then
+    exit(GetLastError());  // OpenProcess() failed
+
+  // Allocate memory in processs
+  pCodeBuffer := VirtualAllocEx(hProcess,  // HANDLE hProcess
+    nil,                                   // LPVOID lpAddress
+    SizeOf(CodeBuffer),                    // DWORD  dwSize
+    MEM_COMMIT,                            // DWORD  flAllocationType
+    PAGE_EXECUTE_READWRITE);               // DWORD  flProtect
+  if Assigned(pCodeBuffer) then
   begin
-    // Allocate memory in processs
-    pCodeBuffer := VirtualAllocEx(hProcess,  // HANDLE hProcess
-      nil,                                   // LPVOID lpAddress
-      SizeOf(CodeBuffer),                    // DWORD  dwSize
-      MEM_COMMIT,                            // DWORD  flAllocationType
-      PAGE_EXECUTE_READWRITE);               // DWORD  flProtect
-    if Assigned(pCodeBuffer) then
+    // Copy code buffer to process
+    OK := WriteProcessMemory(hProcess,  // HANDLE  hProcess
+      pCodeBuffer,                      // LPVOID  lpBaseAddress
+      @CodeBuffer,                      // LPCVOID lpBuffer
+      SizeOf(CodeBuffer),               // SIZE_T  nSize
+      BytesWritten);                    // SIZE_T  lpNumberOfBytesWritten
+    if OK then
     begin
-      // Copy code buffer to process
-      OK := WriteProcessMemory(hProcess,  // HANDLE  hProcess
-        pCodeBuffer,                      // LPVOID  lpBaseAddress
-        @CodeBuffer,                      // LPCVOID lpBuffer
-        SizeOf(CodeBuffer),               // SIZE_T  nSize
-        BytesWritten);                    // SIZE_T  lpNumberOfBytesWritten
-      if OK then
+      // Execute function in process
+      hThread := CreateRemoteThread(hProcess,  // HANDLE                 hProcess
+        nil,                                   // LPSECURITY_ATTRIBUTES  lpThreadAttributes
+        0,                                     // SIZE_T                 dwStackSize
+        @pCodeBuffer^.Routine[0],              // LPTHREAD_START_ROUTINE lpStartAddress
+        pCodeBuffer,                           // LPVOID                 lpParameter
+        0,                                     // DWORD                  dwCreationFlags
+        nil);                                  // LPDWORD                lpThreadId
+      if hThread <> 0 then
       begin
-        // Execute function in process
-        hThread := CreateRemoteThread(hProcess,  // HANDLE                 hProcess
-          nil,                                   // LPSECURITY_ATTRIBUTES  lpThreadAttributes
-          0,                                     // SIZE_T                 dwStackSize
-          @pCodeBuffer^.Routine[0],              // LPTHREAD_START_ROUTINE lpStartAddress
-          pCodeBuffer,                           // LPVOID                 lpParameter
-          0,                                     // DWORD                  dwCreationFlags
-          nil);                                  // LPDWORD                lpThreadId
-        if hThread <> 0 then
+        // Wait for thread to complete
+        if WaitForSingleObject(hThread,   // HANDLE hHandle
+            INFINITE) <> WAIT_FAILED then  // DWORD  dwMilliseconds
         begin
-          // Wait for thread to complete
-          if WaitForSingleObject(hThread,   // HANDLE hHandle
-             INFINITE) <> WAIT_FAILED then  // DWORD  dwMilliseconds
+          // Get exit code of thread
+          if GetExitCodeThread(hThread,  // HANDLE  hThread
+            ThreadExitCode) then         // LPDWORD lpExitCode
           begin
-            // Get exit code of thread
-            if GetExitCodeThread(hThread,  // HANDLE  hThread
-              ThreadExitCode) then         // LPDWORD lpExitCode
-            begin
-              if ThreadExitCode <> 0 then
-                result := 0
-              else  // Thread exit code <> 0
-                result := GetLastError();
-            end
-            else  // GetExitCodeThread() failed
+            if ThreadExitCode <> 0 then
+              result := 0
+            else  // Thread exit code <> 0
               result := GetLastError();
           end
-          else  // WaitForSingleObject() failed
+          else  // GetExitCodeThread() failed
             result := GetLastError();
-          CloseHandle(hThread);
         end
-        else  // CreateRemoteThread() failed
+        else  // WaitForSingleObject() failed
           result := GetLastError();
+        CloseHandle(hThread);
       end
-      else  // WriteProcessMemory() failed
-        result := GetLastError();
-      // Free memory in process
-      if not VirtualFreeEx(hProcess,  // HANDLE hProcess
-        pCodeBuffer,                  // LPVOID lpAddress
-        0,                            // SIZE_T dwSize
-        MEM_RELEASE) then             // DWORD  dwFreeType
+      else  // CreateRemoteThread() failed
         result := GetLastError();
     end
-    else  // VirtualAllocEx() failed
+    else  // WriteProcessMemory() failed
       result := GetLastError();
-    CloseHandle(hProcess);
+    // Free memory in process
+    if not VirtualFreeEx(hProcess,  // HANDLE hProcess
+      pCodeBuffer,                  // LPVOID lpAddress
+      0,                            // SIZE_T dwSize
+      MEM_RELEASE) then             // DWORD  dwFreeType
+      result := GetLastError();
   end
-  else  // OpenProcess() failed
+  else  // VirtualAllocEx() failed
     result := GetLastError();
+  CloseHandle(hProcess);
 end;
 
 begin

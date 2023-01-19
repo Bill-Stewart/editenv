@@ -1,5 +1,9 @@
 # editenv Version History
 
+## 1.6.2 (2023-01-19)
+
+* Minor tweaks and bump version number for release redistributable.
+
 ## 1.6.1 (2021-11-03)
 
 * Added support to detect the maximum possible number of input characters. In a Windows Terminal (WT) session, maximum input length is currently limited to the current screenful (i.e., you can't edit an environment variable that has a value longer than the current screenful). The **--getmaxlength** parameter reports the maximum possible number of input characters.
