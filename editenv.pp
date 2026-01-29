@@ -1,4 +1,4 @@
-{ Copyright (C) 2020-2025 by Bill Stewart (bstewart at iname.com)
+{ Copyright (C) 2020-2026 by Bill Stewart (bstewart at iname.com)
 
   This program is free software: you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free Software
@@ -35,7 +35,7 @@ uses
 
 const
   PROGRAM_NAME = 'EditEnv';
-  PROGRAM_COPYRIGHT = 'Copyright (C) 2020-2025 by Bill Stewart';
+  PROGRAM_COPYRIGHT = 'Copyright (C) 2020-2026 by Bill Stewart';
 
 type
   TCommandLine = object

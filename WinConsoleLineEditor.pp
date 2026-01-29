@@ -1,4 +1,4 @@
-{ Copyright (C) 2020-2025 by Bill Stewart (bstewart at iname.com)
+{ Copyright (C) 2020-2026 by Bill Stewart (bstewart at iname.com)
 
   This program is free software: you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free Software
@@ -135,17 +135,10 @@ begin
 end;
 
 function StringOfChar(const C: Char; const Len: Integer): string;
-var
-  I: Integer;
 begin
+  SetLength(result, Len);
   if Len > 0 then
-  begin
-    SetLength(result, Len);
-    for I := 1 to Len do
-      result[I] := C;
-  end
-  else
-    result := '';
+    FillWord(Pointer(result)^, Length(result), Word(C));
 end;
 
 // Returns true if key pressed within the specified number of seconds, or

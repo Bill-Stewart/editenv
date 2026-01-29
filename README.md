@@ -4,7 +4,7 @@
 
 ## Copyright and Author
 
-Copyright (C) 2020-2025 by Bill Stewart (bstewart at iname.com)
+Copyright (C) 2020-2026 by Bill Stewart (bstewart at iname.com)
 
 ## License
 
@@ -122,13 +122,13 @@ The maximum possible number of input characters depends on whether the current s
 
 ## Unicode Support
 
-**EditEnv** supports Unicode. For best results, it's recommended to use UTF8 encoding for input and output in the console and to use a terminal font typeface that supports Unicode (such as Consolas).
+**EditEnv** supports Unicode. For best results on Windows versions older than Windows 10 version 1903, it's recommended to use UTF-8 encoding for input and output in the console.
 
-* In cmd.exe, you enable UTF8 encoding by running the following command:
+* In cmd.exe, you enable UTF-8 encoding by running the following command to set the active code page:
   
       chcp 65001
 
-* In PowerShell, you can enable UTF8 encoding by running the following command:
+* In PowerShell, you can enable UTF-8 encoding encoding by running the following command:
 
       $OutputEncoding = [Console]::InputEncoding =
         [Console]::OutputEncoding =

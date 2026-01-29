@@ -1,5 +1,11 @@
 # EditEnv Version History
 
+## 2.0.1 (2025-01-29)
+
+* Added application manifest to executable resource to enforce UTF-8 encoding on Windows 10 version 1903 and later.
+
+* Minor tweaks.
+
 ## 2.0.0 (2025-04-17)
 
 * Added Unicode support. For best results, use UTF8 encoding in the console as noted in the **Unicode Support** section of the documentation.

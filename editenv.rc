@@ -1,6 +1,6 @@
 1 VERSIONINFO
-FILEVERSION 2,0,0,0
-PRODUCTVERSION 2,0,0,0
+FILEVERSION 2,0,1,0
+PRODUCTVERSION 2,0,1,0
 FILEOS 0x4
 FILETYPE 1
 {
@@ -10,12 +10,12 @@ FILETYPE 1
     {
       VALUE "CompanyName", "Bill Stewart (bstewart at iname.com)"
       VALUE "FileDescription", "EditEnv.exe"
-      VALUE "FileVersion", "2.0.0.0"
+      VALUE "FileVersion", "2.0.1.0"
       VALUE "InternalName", "EditEnv.exe"
-      VALUE "LegalCopyright", "(C) 2020-2025 by Bill Stewart (bstewart at iname.com)"
+      VALUE "LegalCopyright", "(C) 2020-2026 by Bill Stewart (bstewart at iname.com)"
       VALUE "OriginalFilename", "EditEnv.exe"
       VALUE "ProductName", "EditEnv.exe"
-      VALUE "ProductVersion", "2.0.0.0"
+      VALUE "ProductVersion", "2.0.1.0"
     }
   }
 
@@ -27,3 +27,5 @@ FILETYPE 1
 
 APPICON ICON "EditEnv.ico"
 MAINICON ICON "EditEnv.ico"
+
+1 24 "EditEnv.manifest"
